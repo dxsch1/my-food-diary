@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="My Food Diary">
+<title>My Food Diary</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#f2f2f7;color:#111}
+main{max-width:650px;margin:auto;padding:20px 16px 48px}
+h1{font-size:32px;margin:8px 0 14px}h2{margin-top:0}
+.card{background:#fff;border-radius:18px;padding:18px;margin:12px 0;box-shadow:0 1px 4px #0001}
+.big{font-size:42px;font-weight:750;margin:4px 0}.muted{color:#6e6e73}.remaining{font-size:19px;font-weight:650}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.stat{background:#f2f2f7;border-radius:12px;padding:12px}.stat strong{display:block;font-size:22px}
+label{display:block;font-weight:650;margin:14px 0 7px}
+input,select,button{width:100%;font-size:18px;padding:13px;border-radius:12px;border:1px solid #c7c7cc;background:#fff}
+button{border:0;background:#007aff;color:#fff;font-weight:700;margin-top:16px}.exerciseButton{background:#34a853}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.entry{padding:13px 0;border-bottom:1px solid #eee}.entry:last-child{border:0}
+.del{width:auto;margin:0;background:#eee;color:#333;font-size:14px;padding:8px 11px}.over{color:#c00}
+.datebar{display:grid;grid-template-columns:52px 1fr 52px;gap:8px;align-items:center}
+.datebar button{margin:0;padding:11px 6px}.datebar input{margin:0;text-align:center}
+.todayBtn{background:#5856d6;margin-top:10px}
+</style>
+</head>
+<body><main>
+<h1>My Food Diary</h1>
+
+<section class="card">
+<h2>Diary Date</h2>
+<div class="datebar">
+<button onclick="changeDay(-1)" aria-label="Previous day">‹</button>
+<input id="datePicker" type="date" onchange="selectDate()">
+<button onclick="changeDay(1)" aria-label="Next day">›</button>
+</div>
+<button class="todayBtn" onclick="goToday()">Today</button>
+<div id="dateLabel" class="muted" style="margin-top:10px;text-align:center"></div>
+</section>
+
+<section class="card">
+<div class="muted">Net Calories</div>
+<div class="big"><span id="net">0</span> <span class="muted" style="font-size:21px">/ <span id="goalTop">2000</span></span></div>
+<div id="remaining" class="remaining"></div>
+<div class="stats">
+<div class="stat"><span class="muted">Food</span><strong id="foodTotal">0</strong></div>
+<div class="stat"><span class="muted">Exercise</span><strong id="exerciseTotal">0</strong></div>
+</div>
+</section>
+
+<section class="card">
+<h2>Add Food</h2>
+<label>What did you eat?</label><input id="food" placeholder="e.g. 2 scrambled eggs">
+<label>Meal</label><select id="meal"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select>
+<label>Calories</label><input id="cal" type="number" min="0" inputmode="numeric" placeholder="e.g. 180">
+<button onclick="addFood()">＋ Add Food</button>
+</section>
+
+<section class="card">
+<h2>Add Exercise</h2>
+<label>Exercise or activity</label><input id="exercise" placeholder="e.g. Walking">
+<label>Calories burned</label><input id="burned" type="number" min="0" inputmode="numeric" placeholder="e.g. 150">
+<button class="exerciseButton" onclick="addExercise()">＋ Add Exercise</button>
+</section>
+
+<section class="card">
+<h2>Daily Goal</h2>
+<label>Net calorie goal per day</label><input id="goal" type="number" min="1" inputmode="numeric" value="2000" onchange="setGoal()">
+<div class="muted" style="margin-top:8px">Net calories = food calories − exercise calories.</div>
+</section>
+
+<section class="card"><h2>Food for Selected Date</h2><div id="foodList"></div></section>
+<section class="card"><h2>Exercise for Selected Date</h2><div id="exerciseList"></div></section>
+
+<script>
+function localISO(d=new Date()){
+ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`;
+}
+let selectedDate=localISO();
+let foods=[],exercises=[];
+let goal=Number(localStorage.getItem('mfd_goal')||2000);
+document.getElementById('goal').value=goal;
+document.getElementById('datePicker').value=selectedDate;
+
+function esc(s){return s.replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]))}
+function foodKey(){return 'mfd_food_'+selectedDate}
+function exKey(){return 'mfd_ex_'+selectedDate}
+function loadDay(){foods=JSON.parse(localStorage.getItem(foodKey())||'[]');exercises=JSON.parse(localStorage.getItem(exKey())||'[]');render()}
+function save(){localStorage.setItem(foodKey(),JSON.stringify(foods));localStorage.setItem(exKey(),JSON.stringify(exercises))}
+function selectDate(){selectedDate=document.getElementById('datePicker').value||localISO();loadDay()}
+function changeDay(delta){
+ let d=new Date(selectedDate+'T12:00:00');d.setDate(d.getDate()+delta);selectedDate=localISO(d);
+ document.getElementById('datePicker').value=selectedDate;loadDay()
+}
+function goToday(){selectedDate=localISO();document.getElementById('datePicker').value=selectedDate;loadDay()}
+function addFood(){
+ let food=document.getElementById('food').value.trim(),meal=document.getElementById('meal').value,cal=Number(document.getElementById('cal').value);
+ if(!food||!cal||cal<0){alert('Please enter a food and its calories.');return}
+ foods.push({food,meal,cal});save();document.getElementById('food').value='';document.getElementById('cal').value='';render()
+}
+function addExercise(){
+ let exercise=document.getElementById('exercise').value.trim(),burned=Number(document.getElementById('burned').value);
+ if(!exercise||!burned||burned<0){alert('Please enter an exercise and calories burned.');return}
+ exercises.push({exercise,burned});save();document.getElementById('exercise').value='';document.getElementById('burned').value='';render()
+}
+function removeFood(i){foods.splice(i,1);save();render()}
+function removeExercise(i){exercises.splice(i,1);save();render()}
+function setGoal(){goal=Math.max(1,Number(document.getElementById('goal').value)||2000);localStorage.setItem('mfd_goal',goal);render()}
+function render(){
+ let foodTotal=foods.reduce((a,e)=>a+e.cal,0),exerciseTotal=exercises.reduce((a,e)=>a+e.burned,0),net=foodTotal-exerciseTotal,rem=goal-net;
+ document.getElementById('foodTotal').textContent=foodTotal.toLocaleString();
+ document.getElementById('exerciseTotal').textContent=exerciseTotal.toLocaleString();
+ document.getElementById('net').textContent=net.toLocaleString();
+ document.getElementById('goalTop').textContent=goal.toLocaleString();
+ let r=document.getElementById('remaining');r.textContent=rem>=0?rem.toLocaleString()+' net calories remaining':Math.abs(rem).toLocaleString()+' net calories over goal';r.className='remaining'+(rem<0?' over':'');
+ let d=new Date(selectedDate+'T12:00:00');
+ document.getElementById('dateLabel').textContent=d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+ document.getElementById('foodList').innerHTML=foods.length?foods.map((e,i)=>`<div class="entry"><div class="row"><div><strong>${esc(e.food)}</strong><div class="muted">${e.meal} · ${e.cal.toLocaleString()} calories</div></div><button class="del" onclick="removeFood(${i})">Delete</button></div></div>`).join(''):'<div class="muted">No food entered for this date.</div>';
+ document.getElementById('exerciseList').innerHTML=exercises.length?exercises.map((e,i)=>`<div class="entry"><div class="row"><div><strong>${esc(e.exercise)}</strong><div class="muted">${e.burned.toLocaleString()} calories burned</div></div><button class="del" onclick="removeExercise(${i})">Delete</button></div></div>`).join(''):'<div class="muted">No exercise entered for this date.</div>';
+}
+loadDay();
+</script></main></body></html>
