@@ -159,31 +159,55 @@ function render(){
 function saveWeight(){let w=Number(document.getElementById('weight').value);if(w<=0){alert('Please enter your weight.');return}
 localStorage.setItem('mfd_weight_'+selectedDate,w);document.getElementById('weightSaved').textContent='Saved weight: '+w.toFixed(1)+' lb';drawChart()}
 
+function englishName(p){
+ return (p.product_name_en||p.product_name||'Unnamed food').trim();
+}
+function usServing(raw){
+ if(!raw)return '';
+ let t=String(raw).trim();
+ // Preserve descriptive serving counts, cups, tablespoons, and ounces already supplied.
+ let converted=t.replace(/(\d+(?:\.\d+)?)\s*(?:grams?|g)\b/gi,(_,v)=>{
+  let oz=Number(v)/28.349523125;
+  return (Math.round(oz*10)/10).toLocaleString('en-US')+' oz';
+ }).replace(/(\d+(?:\.\d+)?)\s*(?:millilit(?:er|re)s?|ml)\b/gi,(_,v)=>{
+  let fl=Number(v)/29.5735295625;
+  return (Math.round(fl*10)/10).toLocaleString('en-US')+' fl oz';
+ });
+ return converted;
+}
+function nutritionBasis(p){
+ let n=p.nutriments||{}, serving=n['energy-kcal_serving']!=null;
+ return serving?'per serving'+(p.serving_size?' ('+usServing(p.serving_size)+')':''):'per 3.5 oz (100 g)';
+}
 async function lookupFood(){
- let q=document.getElementById('foodSearch').value.trim(); if(!q)return;
- let st=document.getElementById('lookupStatus'),box=document.getElementById('searchResults');st.textContent='Searching…';box.innerHTML='';
+ let q=document.getElementById('foodSearch').value.trim();if(!q)return;
+ let st=document.getElementById('lookupStatus'),box=document.getElementById('searchResults');
+ st.textContent='Searching…';box.innerHTML='';
  try{
-  let u='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(q)+'&search_simple=1&action=process&json=1&page_size=10&fields=product_name,brands,serving_size,nutriments';
-  let r=await fetch(u),d=await r.json();
-  let a=(d.products||[]).filter(p=>p.product_name&&p.nutriments&&(p.nutriments['energy-kcal_serving']||p.nutriments['energy-kcal_100g'])).slice(0,8);
-  st.textContent=a.length?'Tap Use to fill the food entry form.':'No match found. You can still enter calories manually.';
-  window.lookupProducts=a;box.innerHTML=a.map((p,i)=>{let k=Math.round(Number(p.nutriments['energy-kcal_serving']||p.nutriments['energy-kcal_100g']||0));
-   let basis=p.nutriments['energy-kcal_serving']?'per serving'+(p.serving_size?' ('+p.serving_size+')':''):'per 100 g';
-   return `<div class="lookup-item"><div class="row"><div><strong>${esc(p.product_name)}</strong><div class="muted">${esc(p.brands||'')} · ${k} calories ${esc(basis)}</div></div><button class="use" onclick="useLookup(${i})">Use</button></div></div>`}).join('');
+  let u='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(q)+'&search_simple=1&action=process&json=1&page_size=10&fields=product_name,product_name_en,brands,serving_size,nutriments';
+  let r=await fetch(u);if(!r.ok)throw new Error('Lookup unavailable');
+  let d=await r.json();
+  let a=(d.products||[]).filter(p=>(p.product_name_en||p.product_name)&&p.nutriments&&(p.nutriments['energy-kcal_serving']!=null||p.nutriments['energy-kcal_100g']!=null)).slice(0,8);
+  window.lookupProducts=a;
+  st.textContent=a.length?'Tap Use to fill the food entry form. Check the serving amount.':'No match found. You can still enter food manually.';
+  box.innerHTML=a.map((p,i)=>{
+   let n=p.nutriments,k=Math.round(Number(n['energy-kcal_serving']??n['energy-kcal_100g']));
+   return `<div class="lookup-item"><div class="row"><div><strong>${esc(englishName(p))}</strong><div class="muted">${esc(p.brands||'')} · ${k} calories ${esc(nutritionBasis(p))}</div></div><button class="use" onclick="useLookup(${i})">Use</button></div></div>`;
+  }).join('');
  }catch(e){st.textContent='Food lookup could not connect. Manual entry still works.'}
 }
 function useLookup(i){
  let p=(window.lookupProducts||[])[i];if(!p)return;
  let n=p.nutriments||{},serving=n['energy-kcal_serving']!=null;
  let k=Number(n[serving?'energy-kcal_serving':'energy-kcal_100g']);
- document.getElementById('food').value=p.product_name;
+ document.getElementById('food').value=englishName(p);
  document.getElementById('cal').value=Number.isFinite(k)?Math.round(k):'';
  for(let [field,prefix] of [['carbs','carbohydrates'],['protein','proteins'],['fat','fat']]){
   let raw=n[prefix+(serving?'_serving':'_100g')];
   let value=(raw===null||raw===undefined||raw==='')?'':Number(raw);
   document.getElementById(field).value=value!==''&&Number.isFinite(value)&&value>=0?value:'';
  }
- document.getElementById('lookupStatus').textContent='Selected '+p.product_name+' — values '+(serving?'per serving'+(p.serving_size?' ('+p.serving_size+')':''):'per 100 g')+'. Check your portion before adding.';
+ document.getElementById('lookupStatus').textContent='Selected '+englishName(p)+' — values '+nutritionBasis(p)+'. Check your portion before adding.';
  document.getElementById('food').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function dateBack(n){let d=new Date();d.setDate(d.getDate()-n);return localISO(d)}
