@@ -68,11 +68,11 @@ button{border:0;background:#007aff;color:#fff;font-weight:700;margin-top:16px}.e
 </section>
 
 <section class="card">
-<h2>Food Calorie Lookup</h2>
-<label>Search packaged foods</label>
-<input id="foodSearch" placeholder="e.g. Cheerios, yogurt, soup">
+<h2>Food Lookup — Everyday & Packaged Foods</h2>
+<label>Search foods</label>
+<input id="foodSearch" placeholder="e.g. egg, banana, chicken, Cheerios">
 <button onclick="lookupFood()">Search Foods</button>
-<div class="muted" style="margin-top:8px;font-size:14px">Uses Open Food Facts. Check the serving size before adding.</div>
+<div class="muted" style="margin-top:8px;font-size:14px">Everyday foods work offline. Packaged products use Open Food Facts when available. Values are estimates; check portions and labels.</div>
 <div id="lookupStatus" class="muted" style="margin-top:10px"></div>
 <div id="searchResults"></div>
 </section>
@@ -179,35 +179,127 @@ function nutritionBasis(p){
  let n=p.nutriments||{}, serving=n['energy-kcal_serving']!=null;
  return serving?'per serving'+(p.serving_size?' ('+usServing(p.serving_size)+')':''):'per 3.5 oz (100 g)';
 }
+// Approximate common-food values per specified US portion, based on typical USDA values.
+// Values vary by preparation, brand and portion; these are not verified branded labels.
+const everydayFoods=[
+ ['Egg, large, boiled','1 large egg',78,0.6,6.3,5.3,'egg eggs boiled egg hard boiled egg'],
+ ['Egg, large, raw','1 large egg',72,0.4,6.3,4.8,'egg eggs raw egg'],
+ ['Egg, scrambled (plain)','1 large egg',91,1,6.1,6.7,'egg eggs scrambled eggs'],
+ ['Egg white','1 large egg white',17,0.2,3.6,0.1,'egg white eggs'],
+ ['Banana','1 medium banana',105,27,1.3,0.4,'banana bananas'],
+ ['Apple, with skin','1 medium apple',95,25.1,0.5,0.3,'apple apples'],
+ ['Orange','1 medium orange',62,15.4,1.2,0.2,'orange oranges'],
+ ['Strawberries','1 cup halves',49,11.7,1,0.5,'strawberry strawberries'],
+ ['Blueberries','1 cup',84,21.4,1.1,0.5,'blueberry blueberries'],
+ ['Grapes','1 cup',104,27.3,1.1,0.2,'grape grapes'],
+ ['Watermelon','1 cup diced',46,11.5,0.9,0.2,'watermelon melon'],
+ ['Avocado','1/2 medium avocado',161,8.5,2,14.7,'avocado'],
+ ['Broccoli, steamed','1 cup chopped',55,11.2,3.7,0.6,'broccoli'],
+ ['Carrots, raw','1 medium carrot',25,5.8,0.6,0.1,'carrot carrots'],
+ ['Spinach, raw','1 cup',7,1.1,0.9,0.1,'spinach'],
+ ['Lettuce, romaine','1 cup shredded',8,1.5,0.6,0.1,'lettuce salad'],
+ ['Tomato','1 medium tomato',22,4.8,1.1,0.2,'tomato tomatoes'],
+ ['Cucumber','1 cup sliced',16,3.8,0.7,0.1,'cucumber'],
+ ['Potato, baked, with skin','1 medium potato',161,36.6,4.3,0.2,'potato baked potato'],
+ ['Sweet potato, baked','1 medium sweet potato',112,26.2,2,0.1,'sweet potato yam'],
+ ['White rice, cooked','1 cup',205,44.5,4.3,0.4,'rice white rice'],
+ ['Brown rice, cooked','1 cup',216,44.8,5,1.8,'rice brown rice'],
+ ['Oatmeal, cooked with water','1 cup',154,27.4,5.4,2.6,'oatmeal oats porridge'],
+ ['Bread, whole wheat','1 slice',81,13.8,4,1.1,'bread wheat toast'],
+ ['Bread, white','1 slice',79,14.7,2.7,1,'bread toast'],
+ ['Pasta, cooked','1 cup',221,43.2,8.1,1.3,'pasta spaghetti noodles'],
+ ['Chicken breast, roasted, skinless','3 oz cooked',128,0,26.1,2.7,'chicken chicken breast'],
+ ['Chicken thigh, roasted, skinless','3 oz cooked',177,0,21,9.6,'chicken chicken thigh'],
+ ['Ground beef, 90% lean, cooked','3 oz cooked',184,0,22,10,'beef ground beef hamburger'],
+ ['Beef sirloin steak, cooked','3 oz cooked',180,0,25,8,'beef steak sirloin'],
+ ['Pork chop, cooked, lean','3 oz cooked',173,0,23,8,'pork pork chop'],
+ ['Turkey breast, roasted','3 oz cooked',125,0,26,1.8,'turkey'],
+ ['Salmon, cooked','3 oz cooked',175,0,19,10.5,'salmon fish'],
+ ['Tuna, canned in water, drained','3 oz',99,0,22,0.8,'tuna fish'],
+ ['Shrimp, cooked','3 oz cooked',84,0.2,20,0.2,'shrimp prawns'],
+ ['Tofu, firm','1/2 cup',94,2.3,10,5.9,'tofu'],
+ ['Black beans, cooked','1/2 cup',114,20.4,7.6,0.5,'beans black beans'],
+ ['Kidney beans, cooked','1/2 cup',112,20.2,7.7,0.4,'beans kidney beans'],
+ ['Lentils, cooked','1/2 cup',115,20,9,0.4,'lentils'],
+ ['Peanut butter','2 tablespoons',188,7.7,8,16,'peanut butter'],
+ ['Almonds','1 oz (about 23 almonds)',164,6.1,6,14.2,'almond almonds nuts'],
+ ['Walnuts','1 oz',185,3.9,4.3,18.5,'walnut walnuts nuts'],
+ ['Milk, whole','1 cup (8 fl oz)',149,11.7,7.7,7.9,'milk whole milk'],
+ ['Milk, 2%','1 cup (8 fl oz)',122,11.7,8.1,4.8,'milk reduced fat milk'],
+ ['Milk, skim','1 cup (8 fl oz)',83,12.2,8.3,0.2,'milk skim milk nonfat'],
+ ['Greek yogurt, plain, nonfat','3/4 cup',100,6,17,0,'yogurt greek yogurt'],
+ ['Yogurt, plain, whole milk','1 cup',149,11.4,8.5,8,'yogurt'],
+ ['Cheddar cheese','1 oz',115,0.4,6.5,9.4,'cheese cheddar'],
+ ['Mozzarella cheese, part skim','1 oz',72,0.8,6.9,4.5,'cheese mozzarella'],
+ ['Cottage cheese, 2%','1/2 cup',92,4.8,12,2.5,'cottage cheese'],
+ ['Butter','1 tablespoon',102,0,0.1,11.5,'butter'],
+ ['Olive oil','1 tablespoon',119,0,0,13.5,'olive oil oil'],
+ ['Sugar, granulated','1 teaspoon',16,4.2,0,0,'sugar'],
+ ['Honey','1 tablespoon',64,17.3,0.1,0,'honey'],
+ ['Coffee, black','1 cup (8 fl oz)',2,0,0.3,0,'coffee'],
+ ['Orange juice','1 cup (8 fl oz)',112,25.8,1.7,0.5,'orange juice juice'],
+ ['Pizza, cheese','1 slice (1/8 of 14-inch pizza)',285,35.7,12.2,10.4,'pizza cheese pizza'],
+ ['French fries','1 medium fast-food serving',365,48,4,17,'fries french fries'],
+ ['Popcorn, air-popped','3 cups',93,18.6,3.1,1.1,'popcorn'],
+];
+let lookupBusy=false;
+function showLookupItems(items){
+ window.lookupItems=items;
+ document.getElementById('searchResults').innerHTML=items.map((item,i)=>{
+  let label=item.type==='common'?item.data[0]:englishName(item.data);
+  let portion=item.type==='common'?item.data[1]:nutritionBasis(item.data);
+  let kcal=item.type==='common'?item.data[2]:Math.round(Number(item.data.nutriments['energy-kcal_serving']??item.data.nutriments['energy-kcal_100g']));
+  let source=item.type==='common'?'Everyday food · estimated values':'Open Food Facts · packaged product';
+  return `<div class="lookup-item"><div class="row"><div><strong>${esc(label)}</strong><div class="muted">${esc(portion)} · ${kcal} calories</div><div class="muted" style="font-size:12px">${source}</div></div><button class="use" onclick="useLookup(${i})">Use</button></div></div>`;
+ }).join('');
+}
 async function lookupFood(){
- let q=document.getElementById('foodSearch').value.trim();if(!q)return;
- let st=document.getElementById('lookupStatus'),box=document.getElementById('searchResults');
- st.textContent='Searching…';box.innerHTML='';
+ if(lookupBusy)return;
+ let q=document.getElementById('foodSearch').value.trim().toLowerCase();if(!q)return;
+ let st=document.getElementById('lookupStatus');
+ let words=q.split(/\s+/).filter(Boolean);
+ let matches=everydayFoods.filter(f=>words.every(w=>(f[0]+' '+f[5]).toLowerCase().includes(w))).slice(0,12);
+ let items=matches.map(data=>({type:'common',data}));
+ showLookupItems(items);
+ st.textContent=matches.length?`${matches.length} everyday-food matches. Looking for packaged foods too…`:'Searching packaged foods…';
+ lookupBusy=true;
  try{
-  let u='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(q)+'&search_simple=1&action=process&json=1&page_size=10&fields=product_name,product_name_en,brands,serving_size,nutriments';
-  let r=await fetch(u);if(!r.ok)throw new Error('Lookup unavailable');
-  let d=await r.json();
-  let a=(d.products||[]).filter(p=>(p.product_name_en||p.product_name)&&p.nutriments&&(p.nutriments['energy-kcal_serving']!=null||p.nutriments['energy-kcal_100g']!=null)).slice(0,8);
-  window.lookupProducts=a;
-  st.textContent=a.length?'Tap Use to fill the food entry form. Check the serving amount.':'No match found. You can still enter food manually.';
-  box.innerHTML=a.map((p,i)=>{
-   let n=p.nutriments,k=Math.round(Number(n['energy-kcal_serving']??n['energy-kcal_100g']));
-   return `<div class="lookup-item"><div class="row"><div><strong>${esc(englishName(p))}</strong><div class="muted">${esc(p.brands||'')} · ${k} calories ${esc(nutritionBasis(p))}</div></div><button class="use" onclick="useLookup(${i})">Use</button></div></div>`;
-  }).join('');
- }catch(e){st.textContent='Food lookup could not connect. Manual entry still works.'}
+  let u='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(q)+'&search_simple=1&action=process&json=1&page_size=15&fields=product_name,product_name_en,brands,serving_size,nutriments';
+  let products=[];
+  for(let attempt=0;attempt<3;attempt++){
+   try{
+    let controller=new AbortController();let timeout=setTimeout(()=>controller.abort(),8500);
+    let r;try{r=await fetch(u,{signal:controller.signal})}finally{clearTimeout(timeout)}
+    if(!r.ok)throw Error('HTTP '+r.status);
+    let d=await r.json();products=(d.products||[]).filter(p=>(p.product_name_en||p.product_name)&&p.nutriments&&(p.nutriments['energy-kcal_serving']!=null||p.nutriments['energy-kcal_100g']!=null)).slice(0,8);
+    break;
+   }catch(e){if(attempt===2)throw e;st.textContent='Packaged-food lookup is slow; retrying automatically…';await new Promise(r=>setTimeout(r,800*(attempt+1)))}
+  }
+  items.push(...products.map(data=>({type:'packaged',data})));
+  showLookupItems(items);
+  st.textContent=items.length?'Select Use to fill nutrition values. Check serving sizes.':'No matches found. Try another food name.';
+ }catch(e){st.textContent=matches.length?'Everyday foods are ready. Packaged-food lookup is temporarily unavailable.':'Packaged-food lookup could not connect. Try again later.'}
+ finally{lookupBusy=false}
 }
 function useLookup(i){
- let p=(window.lookupProducts||[])[i];if(!p)return;
- let n=p.nutriments||{},serving=n['energy-kcal_serving']!=null;
- let k=Number(n[serving?'energy-kcal_serving':'energy-kcal_100g']);
- document.getElementById('food').value=englishName(p);
- document.getElementById('cal').value=Number.isFinite(k)?Math.round(k):'';
- for(let [field,prefix] of [['carbs','carbohydrates'],['protein','proteins'],['fat','fat']]){
-  let raw=n[prefix+(serving?'_serving':'_100g')];
-  let value=(raw===null||raw===undefined||raw==='')?'':Number(raw);
-  document.getElementById(field).value=value!==''&&Number.isFinite(value)&&value>=0?value:'';
+ let item=(window.lookupItems||[])[i];if(!item)return;
+ let name,cal,carbs,protein,fat,basis;
+ if(item.type==='common'){
+  let d=item.data;[name,basis,cal,carbs,protein,fat]=d;
+ }else{
+  let p=item.data,n=p.nutriments||{},serving=n['energy-kcal_serving']!=null;
+  name=englishName(p);basis=nutritionBasis(p);
+  cal=n[serving?'energy-kcal_serving':'energy-kcal_100g'];
+  carbs=n['carbohydrates'+(serving?'_serving':'_100g')];
+  protein=n['proteins'+(serving?'_serving':'_100g')];
+  fat=n['fat'+(serving?'_serving':'_100g')];
  }
- document.getElementById('lookupStatus').textContent='Selected '+englishName(p)+' — values '+nutritionBasis(p)+'. Check your portion before adding.';
+ document.getElementById('food').value=name+' ('+basis+')';
+ for(let [field,value] of [['cal',cal],['carbs',carbs],['protein',protein],['fat',fat]]){
+  let num=value===undefined||value===null||value===''?NaN:Number(value);
+  document.getElementById(field).value=Number.isFinite(num)&&num>=0?(field==='cal'?Math.round(num):Math.round(num*10)/10):'';
+ }
+ document.getElementById('lookupStatus').textContent='Selected '+name+' — '+basis+'. Confirm the amount you ate, then tap Add Food.';
  document.getElementById('food').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function dateBack(n){let d=new Date();d.setDate(d.getDate()-n);return localISO(d)}
