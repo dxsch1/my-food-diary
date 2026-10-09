@@ -25,7 +25,7 @@ button{border:0;background:#007aff;color:#fff;font-weight:700;margin-top:16px}.e
 
 .lookup-item{padding:11px 0;border-bottom:1px solid #eee}.lookup-item:last-child{border:0}
 .use{width:auto;margin:0;background:#007aff;color:white;font-size:14px;padding:8px 11px}
-canvas{width:100%;height:220px;border:1px solid #eee;border-radius:12px}
+.macrogrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}.macrogrid .stat{padding:9px;font-size:14px}.macrogrid strong{font-size:20px}canvas{width:100%;height:220px;border:1px solid #eee;border-radius:12px}
 .footer{text-align:center;color:#6e6e73;font-size:14px;padding:18px 8px 8px}</style>
 </head>
 <body><main>
@@ -49,7 +49,7 @@ canvas{width:100%;height:220px;border:1px solid #eee;border-radius:12px}
 <div class="stats">
 <div class="stat"><span class="muted">Food</span><strong id="foodTotal">0</strong></div>
 <div class="stat"><span class="muted">Exercise</span><strong id="exerciseTotal">0</strong></div>
-</div>
+</div><h2 style="margin-top:18px">Daily Nutrition</h2><div class="macrogrid"><div class="stat">Carbs<strong id="carbsTotal">0 g</strong></div><div class="stat">Protein<strong id="proteinTotal">0 g</strong></div><div class="stat">Fat<strong id="fatTotal">0 g</strong></div></div><div id="macroNote" class="muted" style="font-size:13px;margin-top:8px"></div>
 </section>
 
 <section class="card">
@@ -57,7 +57,7 @@ canvas{width:100%;height:220px;border:1px solid #eee;border-radius:12px}
 <label>What did you eat?</label><input id="food" placeholder="e.g. 2 scrambled eggs">
 <label>Meal</label><select id="meal"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select>
 <label>Calories</label><input id="cal" type="number" min="0" inputmode="numeric" placeholder="e.g. 180">
-<button onclick="addFood()">＋ Add Food</button>
+<div class="macrogrid"><div><label for="carbs">Carbs (g)</label><input id="carbs" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Optional"></div><div><label for="protein">Protein (g)</label><input id="protein" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Optional"></div><div><label for="fat">Fat (g)</label><input id="fat" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Optional"></div></div><div class="muted" style="font-size:13px;margin-top:8px">Enter amounts for the portion you ate. Leave unknown amounts blank.</div><button onclick="addFood()">＋ Add Food</button>
 </section>
 
 <section class="card">
@@ -116,7 +116,7 @@ let goal=Number(localStorage.getItem('mfd_goal')||2000);
 document.getElementById('goal').value=goal;
 document.getElementById('datePicker').value=selectedDate;
 
-function esc(s){return s.replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]))}
+function esc(s){return String(s).replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]))}
 function foodKey(){return 'mfd_food_'+selectedDate}
 function exKey(){return 'mfd_ex_'+selectedDate}
 function loadDay(){foods=JSON.parse(localStorage.getItem(foodKey())||'[]');exercises=JSON.parse(localStorage.getItem(exKey())||'[]');
@@ -131,7 +131,8 @@ function goToday(){selectedDate=localISO();document.getElementById('datePicker')
 function addFood(){
  let food=document.getElementById('food').value.trim(),meal=document.getElementById('meal').value,cal=Number(document.getElementById('cal').value);
  if(!food||!cal||cal<0){alert('Please enter a food and its calories.');return}
- foods.push({food,meal,cal});save();document.getElementById('food').value='';document.getElementById('cal').value='';render()
+ let macros={};for(let key of ['carbs','protein','fat']){let el=document.getElementById(key),v=el.value.trim();if(v!==''&&(!Number.isFinite(Number(v))||Number(v)<0)){alert('Enter a valid '+key+' amount, or leave it blank.');return}if(v!=='')macros[key]=Number(v)}
+ foods.push({food,meal,cal,...macros});save();document.getElementById('food').value='';document.getElementById('cal').value='';for(let key of ['carbs','protein','fat'])document.getElementById(key).value='';render()
 }
 function addExercise(){
  let exercise=document.getElementById('exercise').value.trim(),burned=Number(document.getElementById('burned').value);
@@ -147,10 +148,12 @@ function render(){
  document.getElementById('exerciseTotal').textContent=exerciseTotal.toLocaleString();
  document.getElementById('net').textContent=net.toLocaleString();
  document.getElementById('goalTop').textContent=goal.toLocaleString();
+ for(let key of ['carbs','protein','fat']){let known=foods.filter(e=>typeof e[key]==='number'&&Number.isFinite(e[key]));let sum=known.reduce((a,e)=>a+e[key],0);document.getElementById(key+'Total').textContent=Number(sum.toFixed(1)).toLocaleString()+' g'}
+ let incomplete=foods.filter(e=>['carbs','protein','fat'].some(k=>typeof e[k]!=='number')).length;document.getElementById('macroNote').textContent=incomplete?`Nutrition totals are incomplete: ${incomplete} food ${incomplete===1?'entry is':'entries are'} missing one or more nutrient amounts.`:'Totals reflect entered amounts.';
  let r=document.getElementById('remaining');r.textContent=rem>=0?rem.toLocaleString()+' net calories remaining':Math.abs(rem).toLocaleString()+' net calories over goal';r.className='remaining'+(rem<0?' over':'');
  let d=new Date(selectedDate+'T12:00:00');
  document.getElementById('dateLabel').textContent=d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
- document.getElementById('foodList').innerHTML=foods.length?foods.map((e,i)=>`<div class="entry"><div class="row"><div><strong>${esc(e.food)}</strong><div class="muted">${e.meal} · ${e.cal.toLocaleString()} calories</div></div><button class="del" onclick="removeFood(${i})">Delete</button></div></div>`).join(''):'<div class="muted">No food entered for this date.</div>';
+ document.getElementById('foodList').innerHTML=foods.length?foods.map((e,i)=>`<div class="entry"><div class="row"><div><strong>${esc(e.food)}</strong><div class="muted">${esc(e.meal)} · ${Number(e.cal).toLocaleString()} calories<div class='muted' style='font-size:13px'>Carbs: ${typeof e.carbs==='number'?e.carbs+' g':'—'} · Protein: ${typeof e.protein==='number'?e.protein+' g':'—'} · Fat: ${typeof e.fat==='number'?e.fat+' g':'—'}</div></div></div><button class="del" onclick="removeFood(${i})">Delete</button></div></div>`).join(''):'<div class="muted">No food entered for this date.</div>';
  document.getElementById('exerciseList').innerHTML=exercises.length?exercises.map((e,i)=>`<div class="entry"><div class="row"><div><strong>${esc(e.exercise)}</strong><div class="muted">${e.burned.toLocaleString()} calories burned</div></div><button class="del" onclick="removeExercise(${i})">Delete</button></div></div>`).join(''):'<div class="muted">No exercise entered for this date.</div>';
 }
 function saveWeight(){let w=Number(document.getElementById('weight').value);if(w<=0){alert('Please enter your weight.');return}
