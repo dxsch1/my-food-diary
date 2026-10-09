@@ -167,12 +167,25 @@ async function lookupFood(){
   let r=await fetch(u),d=await r.json();
   let a=(d.products||[]).filter(p=>p.product_name&&p.nutriments&&(p.nutriments['energy-kcal_serving']||p.nutriments['energy-kcal_100g'])).slice(0,8);
   st.textContent=a.length?'Tap Use to fill the food entry form.':'No match found. You can still enter calories manually.';
-  box.innerHTML=a.map(p=>{let k=Math.round(Number(p.nutriments['energy-kcal_serving']||p.nutriments['energy-kcal_100g']||0));
+  window.lookupProducts=a;box.innerHTML=a.map((p,i)=>{let k=Math.round(Number(p.nutriments['energy-kcal_serving']||p.nutriments['energy-kcal_100g']||0));
    let basis=p.nutriments['energy-kcal_serving']?'per serving'+(p.serving_size?' ('+p.serving_size+')':''):'per 100 g';
-   return `<div class="lookup-item"><div class="row"><div><strong>${esc(p.product_name)}</strong><div class="muted">${esc(p.brands||'')} · ${k} calories ${esc(basis)}</div></div><button class="use" onclick='useLookup(${JSON.stringify(p.product_name)},${k})'>Use</button></div></div>`}).join('');
+   return `<div class="lookup-item"><div class="row"><div><strong>${esc(p.product_name)}</strong><div class="muted">${esc(p.brands||'')} · ${k} calories ${esc(basis)}</div></div><button class="use" onclick="useLookup(${i})">Use</button></div></div>`}).join('');
  }catch(e){st.textContent='Food lookup could not connect. Manual entry still works.'}
 }
-function useLookup(n,k){document.getElementById('food').value=n;document.getElementById('cal').value=k;document.getElementById('food').scrollIntoView({behavior:'smooth',block:'center'})}
+function useLookup(i){
+ let p=(window.lookupProducts||[])[i];if(!p)return;
+ let n=p.nutriments||{},serving=n['energy-kcal_serving']!=null;
+ let k=Number(n[serving?'energy-kcal_serving':'energy-kcal_100g']);
+ document.getElementById('food').value=p.product_name;
+ document.getElementById('cal').value=Number.isFinite(k)?Math.round(k):'';
+ for(let [field,prefix] of [['carbs','carbohydrates'],['protein','proteins'],['fat','fat']]){
+  let raw=n[prefix+(serving?'_serving':'_100g')];
+  let value=(raw===null||raw===undefined||raw==='')?'':Number(raw);
+  document.getElementById(field).value=value!==''&&Number.isFinite(value)&&value>=0?value:'';
+ }
+ document.getElementById('lookupStatus').textContent='Selected '+p.product_name+' — values '+(serving?'per serving'+(p.serving_size?' ('+p.serving_size+')':''):'per 100 g')+'. Check your portion before adding.';
+ document.getElementById('food').scrollIntoView({behavior:'smooth',block:'center'});
+}
 function dateBack(n){let d=new Date();d.setDate(d.getDate()-n);return localISO(d)}
 function drawChart(){
  let c=document.getElementById('chart');if(!c)return;let ctx=c.getContext('2d'),type=document.getElementById('chartType').value,days=type==='weight'?30:14,vals=[],labs=[];
