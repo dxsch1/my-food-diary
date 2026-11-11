@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="My Food Diary">
+<title>My Food Diary</title>
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#f2f2f7;color:#111}
+main{max-width:650px;margin:auto;padding:20px 16px 48px}
+h1{font-size:32px;margin:8px 0 14px}h2{margin-top:0}
+.card{background:#fff;border-radius:18px;padding:18px;margin:12px 0;box-shadow:0 1px 4px #0001}
+.big{font-size:42px;font-weight:750;margin:4px 0}.muted{color:#6e6e73}.remaining{font-size:19px;font-weight:650}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}.stat{background:#f2f2f7;border-radius:12px;padding:12px}.stat strong{display:block;font-size:22px}
+label{display:block;font-weight:650;margin:14px 0 7px}
+input,select,button{width:100%;font-size:18px;padding:13px;border-radius:12px;border:1px solid #c7c7cc;background:#fff}
+button{border:0;background:#007aff;color:#fff;font-weight:700;margin-top:16px}.exerciseButton{background:#34a853}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.entry{padding:13px 0;border-bottom:1px solid #eee}.entry:last-child{border:0}
+.del{width:auto;margin:0;background:#eee;color:#333;font-size:14px;padding:8px 11px}.over{color:#c00}
+.datebar{display:grid;grid-template-columns:52px 1fr 52px;gap:8px;align-items:center}
+.datebar button{margin:0;padding:11px 6px}.datebar input{margin:0;text-align:center}
+.todayBtn{background:#5856d6;margin-top:10px}
+
+.lookup-item{padding:11px 0;border-bottom:1px solid #eee}.lookup-item:last-child{border:0}
+.use{width:auto;margin:0;background:#007aff;color:white;font-size:14px;padding:8px 11px}
+.macrogrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}.macrogrid .stat{padding:9px;font-size:14px}.macrogrid strong{font-size:20px}
+.footer{text-align:center;color:#6e6e73;font-size:14px;padding:18px 8px 8px}</style>
+</head>
+<body><main>
+<h1>My Food Diary</h1>
+
+<section class="card">
+<h2>Diary Date</h2>
+<div class="datebar">
+<button onclick="changeDay(-1)" aria-label="Previous day">‹</button>
+<input id="datePicker" type="date" onchange="selectDate()">
+<button onclick="changeDay(1)" aria-label="Next day">›</button>
+</div>
+<button class="todayBtn" onclick="goToday()">Today</button>
+<div id="dateLabel" class="muted" style="margin-top:10px;text-align:center"></div>
+</section>
+
+<section class="card">
+<div class="muted">Net Calories</div>
+<div class="big"><span id="net">0</span> <span class="muted" style="font-size:21px">/ <span id="goalTop">2000</span></span></div>
+<div id="remaining" class="remaining"></div>
+<div class="stats">
+<div class="stat"><span class="muted">Food</span><strong id="foodTotal">0</strong></div>
+<div class="stat"><span class="muted">Exercise</span><strong id="exerciseTotal">0</strong></div>
+</div><h2 style="margin-top:18px">Daily Nutrition</h2><div class="macrogrid"><div class="stat">Carbs<strong id="carbsTotal">0 g</strong></div><div class="stat">Protein<strong id="proteinTotal">0 g</strong></div><div class="stat">Fat<strong id="fatTotal">0 g</strong></div></div><div id="macroNote" class="muted" style="font-size:13px;margin-top:8px"></div>
+</section>
+
+<section class="card">
+<h2>Add Food</h2>
+<label>What did you eat?</label><input id="food" placeholder="e.g. 2 scrambled eggs">
+<label>Meal</label><select id="meal"><option>Breakfast</option><option>Lunch</option><option>Dinner</option><option>Snack</option></select>
+<label>Calories</label><input id="cal" type="number" min="0" inputmode="numeric" placeholder="e.g. 180">
+<div class="macrogrid"><div><label for="carbs">Carbs (g)</label><input id="carbs" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Optional"></div><div><label for="protein">Protein (g)</label><input id="protein" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Optional"></div><div><label for="fat">Fat (g)</label><input id="fat" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Optional"></div></div><div class="muted" style="font-size:13px;margin-top:8px">Enter amounts for the portion you ate. Leave unknown amounts blank.</div><button onclick="addFood()">＋ Add Food</button>
+</section>
+
+<section class="card">
+<h2>Add Exercise</h2>
+<label>Exercise or activity</label><input id="exercise" placeholder="e.g. Walking">
+<label>Calories burned</label><input id="burned" type="number" min="0" inputmode="numeric" placeholder="e.g. 150">
+<button class="exerciseButton" onclick="addExercise()">＋ Add Exercise</button>
+<hr style="border:0;border-top:1px solid #eee;margin:22px 0">
+<h3>Daily BMR (optional)</h3>
+<label for="dailyBmr">BMR calories for selected date</label>
+<input id="dailyBmr" type="number" min="0" step="1" inputmode="numeric" placeholder="e.g. 1500" value="0">
+<label style="display:flex;align-items:center;gap:10px;font-weight:500"><input id="includeBmr" type="checkbox" style="width:22px;height:22px" onchange="saveBmr()"> Include BMR in calories burned</label>
+<button class="exerciseButton" onclick="saveBmr()">Save Daily BMR</button>
+<div id="bmrStatus" class="muted" style="margin-top:8px" aria-live="polite"></div>
+</section>
+
+<section class="card">
+<h2>Food Lookup — Everyday & Packaged Foods</h2>
+<label>Search foods</label>
+<input id="foodSearch" placeholder="e.g. egg, banana, chicken, Cheerios">
+<button onclick="lookupFood()">Search Foods</button>
+<div class="muted" style="margin-top:8px;font-size:14px">Everyday foods work offline. Packaged products use Open Food Facts when available. Values are estimates; check portions and labels.</div>
+<div id="lookupStatus" class="muted" style="margin-top:10px"></div>
+<div id="searchResults"></div>
+</section>
+
+<section class="card">
+<h2>Weight Tracking</h2>
+<label>Weight for selected date (lb)</label>
+<input id="weight" type="number" min="1" step="0.1" inputmode="decimal" placeholder="e.g. 185.5">
+<button onclick="saveWeight()">Save Weight</button>
+<div id="weightSaved" class="muted" style="margin-top:8px"></div>
+</section>
+
+
+
+<section class="card">
+<h2>Daily Goal</h2>
+<label>Net calorie goal per day</label><input id="goal" type="number" min="1" inputmode="numeric" value="2000" onchange="setGoal()">
+<div class="muted" style="margin-top:8px">Net calories = food calories − exercise calories − included daily BMR.</div>
+</section>
+
+<section class="card"><h2>Food for Selected Date</h2><div id="foodList"></div></section>
+<section class="card"><h2>Exercise for Selected Date</h2><div id="exerciseList"></div></section>
+
+<script>
+function localISO(d=new Date()){
+ const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');
+ return `${y}-${m}-${day}`;
+}
+let selectedDate=localISO();
+let foods=[],exercises=[];
+let goal=Number(localStorage.getItem('mfd_goal')||2000);
+document.getElementById('goal').value=goal;
+document.getElementById('datePicker').value=selectedDate;
+
+function esc(s){return String(s).replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]))}
+function foodKey(){return 'mfd_food_'+selectedDate}
+function exKey(){return 'mfd_ex_'+selectedDate}
+function bmrKey(){return 'mfd_bmr_'+selectedDate}
+function readBmr(){try{let v=JSON.parse(localStorage.getItem(bmrKey())||'null');return v&&Number.isFinite(v.amount)&&v.amount>=0?{amount:v.amount,include:v.include===true}:{amount:0,include:false}}catch(e){return {amount:0,include:false}}}
+function saveBmr(){let input=document.getElementById('dailyBmr'),raw=input.value.trim(),amount=Number(raw);if(raw===''||!Number.isFinite(amount)||amount<0||!Number.isInteger(amount)){alert('Enter a whole number of BMR calories, or 0.');return}let include=document.getElementById('includeBmr').checked;localStorage.setItem(bmrKey(),JSON.stringify({amount,include}));document.getElementById('bmrStatus').textContent='Saved for '+selectedDate+'. '+(include?'BMR included once in calories burned.':'BMR not included in calories burned.');render()}
+function loadDay(){foods=JSON.parse(localStorage.getItem(foodKey())||'[]');exercises=JSON.parse(localStorage.getItem(exKey())||'[]');
+let b=readBmr();document.getElementById('dailyBmr').value=b.amount;document.getElementById('includeBmr').checked=b.include;document.getElementById('bmrStatus').textContent=b.amount+' BMR calories saved for this date'+(b.include?' (included).':' (not included).');
+let w=localStorage.getItem('mfd_weight_'+selectedDate);document.getElementById('weight').value=w||'';document.getElementById('weightSaved').textContent=w?'Saved weight: '+Number(w).toFixed(1)+' lb':'';render()}
+function save(){localStorage.setItem(foodKey(),JSON.stringify(foods));localStorage.setItem(exKey(),JSON.stringify(exercises))}
+function selectDate(){selectedDate=document.getElementById('datePicker').value||localISO();loadDay()}
+function changeDay(delta){
+ let d=new Date(selectedDate+'T12:00:00');d.setDate(d.getDate()+delta);selectedDate=localISO(d);
+ document.getElementById('datePicker').value=selectedDate;loadDay()
+}
+function goToday(){selectedDate=localISO();document.getElementById('datePicker').value=selectedDate;loadDay()}
+function addFood(){
+ let food=document.getElementById('food').value.trim(),meal=document.getElementById('meal').value,cal=Number(document.getElementById('cal').value);
+ if(!food||!cal||cal<0){alert('Please enter a food and its calories.');return}
+ let macros={};for(let key of ['carbs','protein','fat']){let el=document.getElementById(key),v=el.value.trim();if(v!==''&&(!Number.isFinite(Number(v))||Number(v)<0)){alert('Enter a valid '+key+' amount, or leave it blank.');return}if(v!=='')macros[key]=Number(v)}
+ foods.push({food,meal,cal,...macros});save();document.getElementById('food').value='';document.getElementById('cal').value='';for(let key of ['carbs','protein','fat'])document.getElementById(key).value='';render()
+}
+function addExercise(){
+ let exercise=document.getElementById('exercise').value.trim(),burned=Number(document.getElementById('burned').value);
+ if(!exercise||!burned||burned<0){alert('Please enter an exercise and calories burned.');return}
+ exercises.push({exercise,burned});save();document.getElementById('exercise').value='';document.getElementById('burned').value='';render()
+}
+function removeFood(i){foods.splice(i,1);save();render()}
+function removeExercise(i){exercises.splice(i,1);save();render()}
+function setGoal(){goal=Math.max(1,Number(document.getElementById('goal').value)||2000);localStorage.setItem('mfd_goal',goal);render()}
+function render(){
+ let foodTotal=foods.reduce((a,e)=>a+e.cal,0),exerciseTotal=exercises.reduce((a,e)=>a+e.burned,0)+(readBmr().include?readBmr().amount:0),net=foodTotal-exerciseTotal,rem=goal-net;
+ document.getElementById('foodTotal').textContent=foodTotal.toLocaleString();
+ document.getElementById('exerciseTotal').textContent=exerciseTotal.toLocaleString();
+ document.getElementById('net').textContent=net.toLocaleString();
+ document.getElementById('goalTop').textContent=goal.toLocaleString();
+ for(let key of ['carbs','protein','fat']){let known=foods.filter(e=>typeof e[key]==='number'&&Number.isFinite(e[key]));let sum=known.reduce((a,e)=>a+e[key],0);document.getElementById(key+'Total').textContent=Number(sum.toFixed(1)).toLocaleString()+' g'}
+ let incomplete=foods.filter(e=>['carbs','protein','fat'].some(k=>typeof e[k]!=='number')).length;document.getElementById('macroNote').textContent=incomplete?`Nutrition totals are incomplete: ${incomplete} food ${incomplete===1?'entry is':'entries are'} missing one or more nutrient amounts.`:'Totals reflect entered amounts.';
+ let r=document.getElementById('remaining');r.textContent=rem>=0?rem.toLocaleString()+' net calories remaining':Math.abs(rem).toLocaleString()+' net calories over goal';r.className='remaining'+(rem<0?' over':'');
+ let d=new Date(selectedDate+'T12:00:00');
+ document.getElementById('dateLabel').textContent=d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+ document.getElementById('foodList').innerHTML=foods.length?foods.map((e,i)=>`<div class="entry"><div class="row"><div><strong>${esc(e.food)}</strong><div class="muted">${esc(e.meal)} · ${Number(e.cal).toLocaleString()} calories<div class='muted' style='font-size:13px'>Carbs: ${typeof e.carbs==='number'?e.carbs+' g':'—'} · Protein: ${typeof e.protein==='number'?e.protein+' g':'—'} · Fat: ${typeof e.fat==='number'?e.fat+' g':'—'}</div></div></div><button class="del" onclick="removeFood(${i})">Delete</button></div></div>`).join(''):'<div class="muted">No food entered for this date.</div>';
+ document.getElementById('exerciseList').innerHTML=exercises.length?exercises.map((e,i)=>`<div class="entry"><div class="row"><div><strong>${esc(e.exercise)}</strong><div class="muted">${e.burned.toLocaleString()} calories burned</div></div><button class="del" onclick="removeExercise(${i})">Delete</button></div></div>`).join(''):'<div class="muted">No exercise entered for this date.</div>';
+}
+function saveWeight(){let w=Number(document.getElementById('weight').value);if(w<=0){alert('Please enter your weight.');return}
+localStorage.setItem('mfd_weight_'+selectedDate,w);document.getElementById('weightSaved').textContent='Saved weight: '+w.toFixed(1)+' lb'}
+
+function englishName(p){
+ return (p.product_name_en||p.product_name||'Unnamed food').trim();
+}
+function usServing(raw){
+ if(!raw)return '';
+ let t=String(raw).trim();
+ // Preserve descriptive serving counts, cups, tablespoons, and ounces already supplied.
+ let converted=t.replace(/(\d+(?:\.\d+)?)\s*(?:grams?|g)\b/gi,(_,v)=>{
+  let oz=Number(v)/28.349523125;
+  return (Math.round(oz*10)/10).toLocaleString('en-US')+' oz';
+ }).replace(/(\d+(?:\.\d+)?)\s*(?:millilit(?:er|re)s?|ml)\b/gi,(_,v)=>{
+  let fl=Number(v)/29.5735295625;
+  return (Math.round(fl*10)/10).toLocaleString('en-US')+' fl oz';
+ });
+ return converted;
+}
+function nutritionBasis(p){
+ let n=p.nutriments||{}, serving=n['energy-kcal_serving']!=null;
+ return serving?'per serving'+(p.serving_size?' ('+usServing(p.serving_size)+')':''):'per 3.5 oz (100 g)';
+}
+// Approximate common-food values per specified US portion, based on typical USDA values.
+// Values vary by preparation, brand and portion; these are not verified branded labels.
+const everydayFoods=[
+ ['Egg, large, boiled','1 large egg',78,0.6,6.3,5.3,'egg eggs boiled egg hard boiled egg'],
+ ['Egg, large, raw','1 large egg',72,0.4,6.3,4.8,'egg eggs raw egg'],
+ ['Egg, scrambled (plain)','1 large egg',91,1,6.1,6.7,'egg eggs scrambled eggs'],
+ ['Egg white','1 large egg white',17,0.2,3.6,0.1,'egg white eggs'],
+ ['Banana','1 medium banana',105,27,1.3,0.4,'banana bananas'],
+ ['Apple, with skin','1 medium apple',95,25.1,0.5,0.3,'apple apples'],
+ ['Orange','1 medium orange',62,15.4,1.2,0.2,'orange oranges'],
+ ['Strawberries','1 cup halves',49,11.7,1,0.5,'strawberry strawberries'],
+ ['Blueberries','1 cup',84,21.4,1.1,0.5,'blueberry blueberries'],
+ ['Grapes','1 cup',104,27.3,1.1,0.2,'grape grapes'],
+ ['Watermelon','1 cup diced',46,11.5,0.9,0.2,'watermelon melon'],
+ ['Avocado','1/2 medium avocado',161,8.5,2,14.7,'avocado'],
+ ['Broccoli, steamed','1 cup chopped',55,11.2,3.7,0.6,'broccoli'],
+ ['Carrots, raw','1 medium carrot',25,5.8,0.6,0.1,'carrot carrots'],
+ ['Spinach, raw','1 cup',7,1.1,0.9,0.1,'spinach'],
+ ['Lettuce, romaine','1 cup shredded',8,1.5,0.6,0.1,'lettuce salad'],
+ ['Tomato','1 medium tomato',22,4.8,1.1,0.2,'tomato tomatoes'],
+ ['Cucumber','1 cup sliced',16,3.8,0.7,0.1,'cucumber'],
+ ['Potato, baked, with skin','1 medium potato',161,36.6,4.3,0.2,'potato baked potato'],
+ ['Sweet potato, baked','1 medium sweet potato',112,26.2,2,0.1,'sweet potato yam'],
+ ['White rice, cooked','1 cup',205,44.5,4.3,0.4,'rice white rice'],
+ ['Brown rice, cooked','1 cup',216,44.8,5,1.8,'rice brown rice'],
+ ['Oatmeal, cooked with water','1 cup',154,27.4,5.4,2.6,'oatmeal oats porridge'],
+ ['Bread, whole wheat','1 slice',81,13.8,4,1.1,'bread wheat toast'],
+ ['Bread, white','1 slice',79,14.7,2.7,1,'bread toast'],
+ ['Pasta, cooked','1 cup',221,43.2,8.1,1.3,'pasta spaghetti noodles'],
+ ['Chicken breast, roasted, skinless','3 oz cooked',128,0,26.1,2.7,'chicken chicken breast'],
+ ['Chicken thigh, roasted, skinless','3 oz cooked',177,0,21,9.6,'chicken chicken thigh'],
+ ['Ground beef, 90% lean, cooked','3 oz cooked',184,0,22,10,'beef ground beef hamburger'],
+ ['Beef sirloin steak, cooked','3 oz cooked',180,0,25,8,'beef steak sirloin'],
+ ['Pork chop, cooked, lean','3 oz cooked',173,0,23,8,'pork pork chop'],
+ ['Turkey breast, roasted','3 oz cooked',125,0,26,1.8,'turkey'],
+ ['Salmon, cooked','3 oz cooked',175,0,19,10.5,'salmon fish'],
+ ['Tuna, canned in water, drained','3 oz',99,0,22,0.8,'tuna fish'],
+ ['Shrimp, cooked','3 oz cooked',84,0.2,20,0.2,'shrimp prawns'],
+ ['Tofu, firm','1/2 cup',94,2.3,10,5.9,'tofu'],
+ ['Black beans, cooked','1/2 cup',114,20.4,7.6,0.5,'beans black beans'],
+ ['Kidney beans, cooked','1/2 cup',112,20.2,7.7,0.4,'beans kidney beans'],
+ ['Lentils, cooked','1/2 cup',115,20,9,0.4,'lentils'],
+ ['Peanut butter','2 tablespoons',188,7.7,8,16,'peanut butter'],
+ ['Almonds','1 oz (about 23 almonds)',164,6.1,6,14.2,'almond almonds nuts'],
+ ['Walnuts','1 oz',185,3.9,4.3,18.5,'walnut walnuts nuts'],
+ ['Milk, whole','1 cup (8 fl oz)',149,11.7,7.7,7.9,'milk whole milk'],
+ ['Milk, 2%','1 cup (8 fl oz)',122,11.7,8.1,4.8,'milk reduced fat milk'],
+ ['Milk, skim','1 cup (8 fl oz)',83,12.2,8.3,0.2,'milk skim milk nonfat'],
+ ['Greek yogurt, plain, nonfat','3/4 cup',100,6,17,0,'yogurt greek yogurt'],
+ ['Yogurt, plain, whole milk','1 cup',149,11.4,8.5,8,'yogurt'],
+ ['Cheddar cheese','1 oz',115,0.4,6.5,9.4,'cheese cheddar'],
+ ['Mozzarella cheese, part skim','1 oz',72,0.8,6.9,4.5,'cheese mozzarella'],
+ ['Cottage cheese, 2%','1/2 cup',92,4.8,12,2.5,'cottage cheese'],
+ ['Butter','1 tablespoon',102,0,0.1,11.5,'butter'],
+ ['Olive oil','1 tablespoon',119,0,0,13.5,'olive oil oil'],
+ ['Sugar, granulated','1 teaspoon',16,4.2,0,0,'sugar'],
+ ['Honey','1 tablespoon',64,17.3,0.1,0,'honey'],
+ ['Coffee, black','1 cup (8 fl oz)',2,0,0.3,0,'coffee'],
+ ['Orange juice','1 cup (8 fl oz)',112,25.8,1.7,0.5,'orange juice juice'],
+ ['Pizza, cheese','1 slice (1/8 of 14-inch pizza)',285,35.7,12.2,10.4,'pizza cheese pizza'],
+ ['French fries','1 medium fast-food serving',365,48,4,17,'fries french fries'],
+ ['Popcorn, air-popped','3 cups',93,18.6,3.1,1.1,'popcorn'],
+];
+let lookupBusy=false;
+function showLookupItems(items){
+ window.lookupItems=items;
+ document.getElementById('searchResults').innerHTML=items.map((item,i)=>{
+  let label=item.type==='common'?item.data[0]:englishName(item.data);
+  let portion=item.type==='common'?item.data[1]:nutritionBasis(item.data);
+  let kcal=item.type==='common'?item.data[2]:Math.round(Number(item.data.nutriments['energy-kcal_serving']??item.data.nutriments['energy-kcal_100g']));
+  let source=item.type==='common'?'Everyday food · estimated values':'Open Food Facts · packaged product';
+  return `<div class="lookup-item"><div class="row"><div><strong>${esc(label)}</strong><div class="muted">${esc(portion)} · ${kcal} calories</div><div class="muted" style="font-size:12px">${source}</div></div><button class="use" onclick="useLookup(${i})">Use</button></div></div>`;
+ }).join('');
+}
+async function lookupFood(){
+ if(lookupBusy)return;
+ let q=document.getElementById('foodSearch').value.trim().toLowerCase();if(!q)return;
+ let st=document.getElementById('lookupStatus');
+ let words=q.split(/\s+/).filter(Boolean);
+ let matches=everydayFoods.filter(f=>words.every(w=>(f[0]+' '+f[5]).toLowerCase().includes(w))).slice(0,12);
+ let items=matches.map(data=>({type:'common',data}));
+ showLookupItems(items);
+ st.textContent=matches.length?`${matches.length} everyday-food matches. Looking for packaged foods too…`:'Searching packaged foods…';
+ lookupBusy=true;
+ try{
+  let u='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(q)+'&search_simple=1&action=process&json=1&page_size=15&fields=product_name,product_name_en,brands,serving_size,nutriments';
+  let products=[];
+  for(let attempt=0;attempt<3;attempt++){
+   try{
+    let controller=new AbortController();let timeout=setTimeout(()=>controller.abort(),8500);
+    let r;try{r=await fetch(u,{signal:controller.signal})}finally{clearTimeout(timeout)}
+    if(!r.ok)throw Error('HTTP '+r.status);
+    let d=await r.json();products=(d.products||[]).filter(p=>(p.product_name_en||p.product_name)&&p.nutriments&&(p.nutriments['energy-kcal_serving']!=null||p.nutriments['energy-kcal_100g']!=null)).slice(0,8);
+    break;
+   }catch(e){if(attempt===2)throw e;st.textContent='Packaged-food lookup is slow; retrying automatically…';await new Promise(r=>setTimeout(r,800*(attempt+1)))}
+  }
+  items.push(...products.map(data=>({type:'packaged',data})));
+  showLookupItems(items);
+  st.textContent=items.length?'Select Use to fill nutrition values. Check serving sizes.':'No matches found. Try another food name.';
+ }catch(e){st.textContent=matches.length?'Everyday foods are ready. Packaged-food lookup is temporarily unavailable.':'Packaged-food lookup could not connect. Try again later.'}
+ finally{lookupBusy=false}
+}
+function useLookup(i){
+ let item=(window.lookupItems||[])[i];if(!item)return;
+ let name,cal,carbs,protein,fat,basis;
+ if(item.type==='common'){
+  let d=item.data;[name,basis,cal,carbs,protein,fat]=d;
+ }else{
+  let p=item.data,n=p.nutriments||{},serving=n['energy-kcal_serving']!=null;
+  name=englishName(p);basis=nutritionBasis(p);
+  cal=n[serving?'energy-kcal_serving':'energy-kcal_100g'];
+  carbs=n['carbohydrates'+(serving?'_serving':'_100g')];
+  protein=n['proteins'+(serving?'_serving':'_100g')];
+  fat=n['fat'+(serving?'_serving':'_100g')];
+ }
+ document.getElementById('food').value=name+' ('+basis+')';
+ for(let [field,value] of [['cal',cal],['carbs',carbs],['protein',protein],['fat',fat]]){
+  let num=value===undefined||value===null||value===''?NaN:Number(value);
+  document.getElementById(field).value=Number.isFinite(num)&&num>=0?(field==='cal'?Math.round(num):Math.round(num*10)/10):'';
+ }
+ document.getElementById('lookupStatus').textContent='Selected '+name+' — '+basis+'. Confirm the amount you ate, then tap Add Food.';
+ document.getElementById('food').scrollIntoView({behavior:'smooth',block:'center'});
+}
+loadDay();
+</script><footer class="footer">© 2026 Dean Software</footer></main></body></html>
